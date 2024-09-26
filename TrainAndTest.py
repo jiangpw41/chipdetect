@@ -93,7 +93,7 @@ class Model_Trainer():
         test_data_path = os.path.join( self.train_dataset_group_path, f"images/test")
         test_file_list = find_share_files_list( test_data_path, '.jpg')
         # 保存结果文件夹
-        path_test_results = os.path.join( self.RootPath, f"tests/{exp_name}")
+        path_test_results = os.path.join( self.RootPath, f"tests/temp/{exp_name}")
         path_test_to_iamges = os.path.join(path_test_results, "test_images_tagged" )
         path_test_to_texts = os.path.join(path_test_results, "test_texts" )
         if not os.path.exists(path_test_results):

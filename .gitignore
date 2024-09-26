@@ -5,7 +5,8 @@
 
 models/pre-trained/
 models/post-trained/
-tests/
+tests/temp/
+tests/test_results.json
 
 datasets/raw_datasets/
 datasets/total/
