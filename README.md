@@ -27,7 +27,7 @@ pip install -q git+https://github.com/THU-MIG/yolov10.git
 
 拉取项目到本地后，执行上述**环境安装**步骤
 
-将原始数据集分文件保存到datasets/raw_datasets下，并在config.json文件中根据数据集名称进行分组，所有分到一组的数据集将被整合到一个训练/测试集中使用同一个模型进行训练。
+在datasets目录下新建raw_datasets子目录，将原始数据集分文件保存到该目录下，并在config.json文件中根据数据集名称进行分组，所有分到一组的数据集将被整合到一个训练/测试集中使用同一个模型进行训练。
 
 运行DataProcessor.py程序，对原始数据进行处理，获得统计数据。
 

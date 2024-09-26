@@ -80,6 +80,7 @@ def single_tag( from_path_file_image, num_labels, to_path_file_image_tagged, nee
         cv2.imwrite(to_path_file_image_tagged, img)
         cv2.waitKey(0)  # 按键结束
         cv2.destroyAllWindows()
+
 #（D）返回前缀
 def find_share_files_list(directory, type):  
     jpg_files = []  
@@ -89,6 +90,7 @@ def find_share_files_list(directory, type):
                 jpg_files.append(file[:-4])  
     return jpg_files
 
+#（E）绘图
 def draw( label_list, img, w1, h1, ouput_dir,  flag="five" ):
     # w1, h1来自图片img.shape[:2]
     used_list = []
@@ -116,7 +118,7 @@ def draw( label_list, img, w1, h1, ouput_dir,  flag="five" ):
 class DataProcess():
     def __init__(self):
         self.RootPath = os.path.dirname( os.path.abspath(__file__))                # 项目根目录
-        #（1）加载配置文件
+        #（1）加载配置config.json文件
         config_path = os.path.join( self.RootPath, "config.json" )
         if not os.path.exists( config_path ):
             raise Exception("请在项目根目录创建config.json配置文件！")
@@ -125,27 +127,32 @@ class DataProcess():
         self.groups = self.config["dataset_groups"]
         self.dataset_parts = ["train", "valid", "test"]
         self.dataset_parts_ratio = self.config["dataset_parts_ratio"]
-        #（2）创建数据集路径
+        #（2）检查并创建三个主干子文件夹：如果不存在则创建：raw_datasets、yolo_datasets、total
         self.data_path = os.path.join( self.RootPath, f"datasets")                           # 项目数据目录
         self.raw_data_path = os.path.join( self.RootPath, f"datasets/raw_datasets")          # raw数据目录，多个文件夹
         self.yolo_data_path = os.path.join( self.RootPath, f"datasets/yolo_datasets")        # 对应yolo可用的数据目录，多个文件夹
         if not os.path.exists( self.yolo_data_path ):
             os.makedirs( self.yolo_data_path )
-        self.yolo_data_path_total = os.path.join( self.data_path, f"total")             # total文件夹
+        self.yolo_data_path_total = os.path.join( self.data_path, f"total")                  # total文件夹
         if not os.path.exists( self.yolo_data_path_total ):
             os.makedirs( self.yolo_data_path_total )
-        #（3）创建数据集统计文件
+        #（3）读取、创建数据集统计文件：三个固定键，其他为单个文件夹名为键
         label_statistics_path = os.path.join( self.data_path, "label_statistics.json")
-        if not os.path.exists(label_statistics_path):
+        if not os.path.exists(label_statistics_path):       # 创建空文件
             self.dataset_label_map = {
-                "total":{}
+                "total":{},
+                "position_wrong": {},
+                "groups_label": {}
             }
-        else:
+        else:                                               # 读取已有统计文件，含之前的结构信息
             with open( label_statistics_path, "r", encoding="utf-8") as f:
                 self.dataset_label_map = json.load(f)
-        self.dataset_label_map["position_wrong"] = {}
+        #（4）确定本次变动涉及的数据组和子文件夹
+        self.group_need_change = []
+        self.file_need_change = []
+        self.file_new = []
 
-    #（1）读取数据返回文件名字典，并创建yolo系文件夹
+    #（1）读取新文件夹名称，并获取成对数据返回
     def read_file_name(self):
         #（1）读取raw_datasets和yolo_datasets数据集下子文件夹列表（每次的标签数据集单独放在一个子文件夹）
         raw_dirname_list = os.listdir( self.raw_data_path )
@@ -155,35 +162,45 @@ class DataProcess():
         count = 0
         for i in range( len(raw_dirname_list) ):
             raw_name = raw_dirname_list[i]              # 在raw_datasets下的文件夹名
-            yolo_name = raw_name+"_yolo"        # 在yolo_datasets下的文件夹名
+            yolo_name = raw_name+"_yolo"                # 在yolo_datasets下的文件夹名
             if os.path.isdir( os.path.join( self.raw_data_path, raw_name)) and yolo_name not in yolo_dirname_list:
                 # 如果是文件夹，且其对应的_yolo名不在列表中，说明是新的数据集
+
+                for group_n in self.groups.keys():
+                    if raw_name in self.groups[group_n]:
+                        self.group_need_change.append( group_n )
+                        if group_n in self.group_need_change:
+                            self.file_need_change.extend(self.groups[group_n])
+                        break
                 count +=1
+                self.file_new.append(raw_name )
                 print( f"发现新数据集{raw_name}")
                 new_yolo_path = os.path.join( self.yolo_data_path, yolo_name)
-                new_raw_path = os.path.join(self.raw_data_path, raw_name)
+                
                 if not os.path.exists( new_yolo_path ):
                     # 为新的子文件夹创建在yolo_datasets文件夹下创建一个子文件夹
                     os.makedirs( os.path.join( new_yolo_path, "images"))
                     os.makedirs( os.path.join( new_yolo_path, "labels"))
                     os.makedirs( os.path.join( new_yolo_path, "images_tagged"))
-                #（3）获取新数据集下所有json和jpg文件名列表，并检查是否有其他格式文件
-                raw_list_all = os.listdir( new_raw_path )
-                jpg_list_prefix = []
-                json_list_prefix = []
-                for raw_file_name in raw_list_all:
-                    if raw_file_name.endswith( ".jpg" ):
-                        jpg_list_prefix.append( raw_file_name[:-4])
-                    elif raw_file_name.endswith( ".json" ):
-                        json_list_prefix.append( raw_file_name[:-5])
-                if len(jpg_list_prefix) + len(json_list_prefix) != len(raw_list_all):
-                    raise Exception(f"{raw_name}数据集中有除json和jpg格式外的文件，请检查并修正。")
-                #（4）获取该数据集中成对的数据：json和jpg格式兼备且文件名一致
-                paired_file_name_prefix = []
-                for prefix in json_list_prefix:
-                    if prefix in jpg_list_prefix:
-                        paired_file_name_prefix.append( prefix )
-                ret_dict[raw_name] = paired_file_name_prefix
+        #（3）获取新数据集下所有json和jpg文件名列表，并检查是否有其他格式文件
+        for raw_name in self.file_need_change:
+            new_raw_path = os.path.join(self.raw_data_path, raw_name)
+            raw_list_all = os.listdir( new_raw_path )
+            jpg_list_prefix = []
+            json_list_prefix = []
+            for raw_file_name in raw_list_all:
+                if raw_file_name.endswith( ".jpg" ):
+                    jpg_list_prefix.append( raw_file_name[:-4])
+                elif raw_file_name.endswith( ".json" ):
+                    json_list_prefix.append( raw_file_name[:-5])
+            if len(jpg_list_prefix) + len(json_list_prefix) != len(raw_list_all):
+                raise Exception(f"{raw_name}数据集中有除json和jpg格式外的文件，请检查并修正。")
+            #（4）获取该数据集中成对的数据：json和jpg格式兼备且文件名一致
+            paired_file_name_prefix = []
+            for prefix in json_list_prefix:
+                if prefix in jpg_list_prefix:
+                    paired_file_name_prefix.append( prefix )
+            ret_dict[raw_name] = paired_file_name_prefix
         print(f"本次将处理{count}份数据集，文件夹名如下：")
         print( list(ret_dict.keys()) )
         return ret_dict
@@ -204,17 +221,18 @@ class DataProcess():
             # 每个循环表示一个框
             normalized_points = [0, 0, 0, 0]                # [xmin, xmax, ymin, ymax]
             # 将json文件中的label数量加到self全局字典中，分为单个文件、全局、本地
-            _label = shape["label"]                         
-            if _label in self.dataset_label_map[raw_name]:
-                self.dataset_label_map[raw_name][_label] += 1
-            else:
-                self.dataset_label_map[raw_name][_label] = 1
-            
-            if _label in self.dataset_label_map["total"]:
-                self.dataset_label_map["total"][_label] += 1
-            else:
-                self.dataset_label_map["total"][_label] = 1
-
+            _label = shape["label"]
+            # 仅新出现的数据集才进行增量统计
+            if raw_name in self.file_new:                        
+                if _label in self.dataset_label_map[raw_name]:
+                    self.dataset_label_map[raw_name][_label] += 1
+                else:
+                    self.dataset_label_map[raw_name][_label] = 1
+                
+                if _label in self.dataset_label_map["total"]:
+                    self.dataset_label_map["total"][_label] += 1
+                else:
+                    self.dataset_label_map["total"][_label] = 1
             if _label in label_dict:
                 label_dict[_label] += 1
             else:
@@ -251,25 +269,25 @@ class DataProcess():
         json_dict["position"], json_dict["label"]  = self.parse_json( data, raw_name, data_prefix)
         return json_dict
 
-    #（4）创建原始标签到index的分组映射
+    #（4）全局，创建原始标签到index的分组映射
     def label_merge(self):
         notused_label = [ "r" ] 
-        label_dict = {}
-        # 遍历每个模型数据组
+        # 遍历每个需要改变的数据组
         for key in self.groups.keys():
+            if key not in self.group_need_change:
+                continue
             index = 0
-            label_dict[key] = {}
+            self.dataset_label_map["groups_label"][key] = {}
             # 遍历组中每个独立文件夹
             for _file in self.groups[key]:
                 file_label = self.dataset_label_map[_file]
                 # 遍历每个文件夹对应的label
                 for label in file_label.keys():
                     # 如果这个label既不是被禁用的，之前也没被加入列表，则加入字典
-                    if label not in notused_label and label not in label_dict[key]:
-                        label_dict[key][label] = index
+                    if label not in notused_label and label not in self.dataset_label_map["groups_label"][key]:
+                        self.dataset_label_map["groups_label"][key][label] = index
                         index +=1
-        self.dataset_label_map["groups_label"] = label_dict
-    
+        
     #（5）将原始label转变为分组的index label
     def replace_label(self, new_data_ready):
         ret_data_ready = {}
@@ -352,22 +370,29 @@ class DataProcess():
         _test = file_list[ valid_num+train_num: ]
         return _train, _valid, _test
 
-    #（8）将上述分文件夹处理好的文件，按照group整合到datasets/total目录下
+    #（8）将上述分文件夹处理好的文件，按照group整合到datasets/total目录下：仅对需要重新整理的进行整理
     def merge_yolo_for_train( self, index_new_data_ready ):
-        # 遍历group名
-        for key in self.groups.keys():
-            #（1）先在total下检查或创建group目录
+        # 遍历需要更改的group名
+        for key in self.group_need_change:
+            #（1）如果已经存在则要重新创建
             _dir_name = os.path.join( self.data_path, f"total/{key}")
-            if not os.path.exists( _dir_name ):
-                os.makedirs( _dir_name )
-                for _sub_dir in [ "images", "labels"]:
-                    for _sub_sub_dir in ["train", "test", "valid"]:
-                        os.makedirs( os.path.join( _dir_name, f"{_sub_dir}/{_sub_sub_dir}") )
+            if os.path.exists( _dir_name ):
+                try:  
+                    shutil.rmtree(_dir_name)  
+                    print(f"文件夹 {_dir_name} 及其内容已被成功删除。")  
+                except OSError as e:  
+                    print(f"删除文件夹时发生错误: {e.strerror}")
+            os.makedirs( _dir_name )
+            for _sub_dir in [ "images", "labels"]:
+                for _sub_sub_dir in ["train", "test", "valid"]:
+                    os.makedirs( os.path.join( _dir_name, f"{_sub_dir}/{_sub_sub_dir}") )
             #（2）将group所有子文件夹中的文件混合到一起，（混合文件名，label向量）
             sub_dirnames = self.groups[key]
             group_label = self.dataset_label_map["groups_label"][key]  # 本group所有标签
             group_total = []
             for sub_dirname in sub_dirnames:
+                if sub_dirname not in self.groups[key]:
+                    continue
                 # 对该group中每个子文件夹进行处理
                 sub_dir_dic = index_new_data_ready[sub_dirname]        # 单个文件夹数据，含每个文件的标签信息
                 file_name_list = list( sub_dir_dic.keys() )            # 单个文件夹中所有文件名前缀
