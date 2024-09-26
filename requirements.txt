@@ -1,0 +1,3 @@
+pyyaml
+huggingface_hub
+onnx>=1.12.0

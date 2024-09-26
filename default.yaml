@@ -1,0 +1,233 @@
+# Ultralytics YOLO 🚀, AGPL-3.0 license
+# Default training settings and hyperparameters for medium-augmentation COCO training
+ 
+task: detect # (str) YOLO task, i.e. detect, segment, classify, pose
+mode: train # (str) YOLO mode, i.e. train, val, predict, export, track, benchmark
+ 
+# 训练参数设置 -------------------------------------------------------------------------------------------------------
+model: # (str, optional) 模型文件的路径，即yolov8n.pt、yolov8n.yaml
+data: # (str, optional)数据文件路径 数据集路径, i.e. coco128.yaml
+epochs: 100 # (int)训练批次
+time: # (float, optional) 最大培训时间(以小时为单位)。如果设置了，这将覆盖 epochs 参数，允许训练在指定的持续时间后自动停止。对于时间限制的训练场景非常有用
+patience: 100 # (int) 在早期停止训练之前，在验证度量没有改进的情况下等待的epoch数。当表现停滞时，停止训练有助于防止过度拟合。
+ 
+batch: 4 # (int)批量大小，有三种模式:设置为整数(例如 batch=16 )，自动模式为60%的GPU内存利用率( batch=-1 )，或自动模式为指定的利用率分数( batch=0.70 )
+			v10版本里面,没有自动模式,batch必须大于1,否则会默认为16(-1 for AutoBatch)
+			
+imgsz: 640 # (int | list) 用于训练的目标图像大小。所有图像在输入到模型之前都会被调整到这个尺寸。影响模型精度和计算复杂度
+save: True # (bool) 允许保存训练检查点和最终模型权重。用于恢复训练或模型部署。
+save_period: -1 # (int)保存模型检查点的频率，以epoch指定。值为-1时禁用此特性。用于在长时间的训练期间保存临时模型(disabled if < 1)
+ 
+val_period: 1 # (int) Validation every x epochs  每x个epoch验证一次 就是多久验证一次
+ 
+cache: False # (bool) True/ram, disk or False. Use cache for data loading 
+					启用在内存( True / ram )、磁盘( disk )或禁用( False )中缓存数据集图像。以增加内存使用为代价，通过减少磁盘I/O来提高训练速度。
+					
+device: # (int | str | list, optional)   device to run on, i.e. cuda device=0 or device=0,1,2,3 or device=cpu
+										训练使用gpu还是cpu
+										
+workers: 0 # (int) 用于数据加载的工作线程数 (per RANK if DDP)，一般建议根据cpu的个数来
+project: # (str, optional) project name 保存培训输出的项目目录名称。允许有组织地存储不同的实验。
+ 
+name: # (str, optional) experiment name, results saved to 'project/name' directory
+							训练运行的名称。用于在项目文件夹中创建子目录，用于存储培训日志和输出。
+							
+							
+exist_ok: False # (bool) whether to overwrite existing experiment
+						如果为True，则允许覆盖现有的项目/名称目录。可用于迭代实验，无需手动清除先前的输出。
+ 
+pretrained: True # (bool | str) whether to use a pretrained model (bool) or a model to load weights from (str)
+								确定是否从预训练的模型开始训练。可以是布尔值或到要从中加载权重的特定模型的字符串路径。提高培训效率和模型性能。
+ 
+optimizer: auto # (str) optimizer to use, choices=[SGD, Adam, Adamax, AdamW, NAdam, RAdam, RMSProp, auto]
+						训练优化器的选择。选项包括 SGD、 Adam 、 AdamW 、 NAdam 、 RAdam 、
+						RMSProp 等，或者根据型号配置自动选择 auto 。影响收敛速度和稳定性。
+ 
+verbose: True # (bool) whether to print verbose output
+					支持训练期间的详细输出，提供详细的日志和进度更新。用于调试和密切监视培训过程。
+					
+seed: 0 # (int) random seed for reproducibility
+			为训练设置随机种子，确保在相同配置的运行中结果的可重复性。
+			
+deterministic: True # (bool) whether to enable deterministic mode 强制使用确定性算法，确保再现性，但由于对非确定性算法的限制，可能会影响性能和速度。
+ 
+single_cls: False # (bool) train multi-class data as single-class  在训练期间将多类数据集中的所有类视为单个类。用于二元分类任务或关注对象存在而不是分类时。
+ 
+rect: False # (bool) rectangular training if mode='train' or rectangular validation if mode='val'
+					使矩形训练，优化批量组成最小填充。可以提高效率和速度，但可能会影响模型的准确性。
+					
+cos_lr: False # (bool) use cosine learning rate scheduler
+						利用余弦学习率调度程序，调整学习率后，余弦曲线的epoch。有助于管理学习率以实现更好的收敛
+ 
+close_mosaic: 10 # (int) disable mosaic augmentation for final epochs (0 to disable)
+							在最后N次迭代中禁用马赛克数据增强，以在完成之前稳定训练。设置为0禁用此功能。
+							
+resume: False # (bool) resume training from last checkpoint 从上次保存的检查点恢复训练。自动加载模型权重、优化器状态和历元计数，无缝地继续训练。
+ 
+amp: True # (bool) Automatic Mixed Precision (AMP) training, choices=[True, False], True runs AMP check
+					支持自动混合精度(AMP)训练，减少内存使用，并可能在对准确性影响最小的情况下加速训练
+					
+fraction: 1.0 # (float) dataset fraction to train on (default is 1.0, all images in train set)
+						指定要用于训练的数据集的部分。允许在完整数据集的子集上进行训练，对于实验或资源有限时非常有用 (默认值为1.0，数据集中的所有图像)
+						
+profile: False # (bool) profile ONNX and TensorRT speeds during training for loggers
+						允许在训练期间对ONNX和TensorRT速度进行分析，有助于优化模型部署。
+						
+freeze: None # (int | list, optional) freeze first n layers, or freeze list of layer indices during training
+									通过索引冻结模型的前N层或指定层，减少可训练参数的数量。用于微调或迁移学习。
+									
+multi_scale: False # (bool) Whether to use multiscale during training
+							培训期间是否使用多尺度
+# Segmentation 市场细分
+overlap_mask: True # (bool) masks should overlap during training (segment train only)
+							确定在训练期间分割掩码是否应该重叠，适用于实例分割任务。
+							
+mask_ratio: 4 # (int) mask downsample ratio (segment train only)
+					分割蒙版的下采样率，影响训练时使用的蒙版的分辨率。
+# Classification 分类
+dropout: 0.0 # (float) use dropout regularization (classify train only)
+						分类任务中正则化的失败率，通过在训练过程中随机省略单元来防止过拟合。
+ 
+# Val/Test settings 验证/测试 参数设置 ----------------------------------------------------------------------------------------------------
+val: True # (bool) validate/test during training
+					在训练期间启用验证，允许在单独的数据集上定期评估模型性能。
+					
+split: val # (str) dataset split to use for validation, i.e. 'val', 'test' or 'train'
+					数据集拆分以用于验证
+					
+save_json: False # (bool) save results to JSON file  保存结果到json文件里面
+ 
+save_hybrid: False # (bool) save hybrid version of labels (labels + additional predictions)
+							保存标签的混合版本（标签+其他预测）
+ 
+conf: # (float, optional) object confidence threshold for detection (default 0.25 predict, 0.001 val)
+						用于检测的对象置信阈值（默认0.25预测，0.001 val）
+						
+iou: 0.7 # (float) intersection over union (IoU) threshold for NMS
+					NMS的交叉口超过联合（IoU）阈值
+					
+max_det: 300 # (int) maximum number of detections per image
+					每张图像的最大检测次数
+					
+half: False # (bool) use half precision (FP16)
+					使用半精度
+dnn: False # (bool) use OpenCV DNN for ONNX inference
+					使用OpenCV DNN进行ONNX推理
+plots: True # (bool) save plots and images during train/val
+					在训练/比赛期间保存图表和图像
+ 
+# Predict settings  预测设置-----------------------------------------------------------------------------------------------------
+source: # (str, optional) source directory for images or videos  要预测的图形或者视频
+ 
+vid_stride: 1 # (int) video frame-rate stride 视频帧率步幅
+ 
+stream_buffer: False # (bool) buffer all streaming frames (True) or return the most recent frame (False)
+								用于控制是否缓冲所有流式帧（True）或返回最新的帧（False）
+visualize: False # (bool) visualize model features 用于控制是否可视化模型的特征
+ 
+augment: False # (bool) apply image augmentation to prediction sources 用于控制是否对预测源应用图像增强
+ 
+agnostic_nms: False # (bool) class-agnostic NMS 用于控制是否使用无关类别的非极大值抑制（NMS）
+ 
+ 
+classes: # (int | list[int], optional) filter results by class, i.e. classes=0, or classes=[0,2,3]
+									按类别筛选结果
+retina_masks: False # (bool) use high-resolution segmentation masks
+							使用高分辨率分割掩模
+ 
+embed: # (list[int], optional) return feature vectors/embeddings from given layers
+								从给定层返回特征向量/嵌入
+ 
+# Visualize settings  预测结果可视化设置---------------------------------------------------------------------------------------------------
+show: False # (bool) show predicted images and videos if environment allows
+					如果环境允许，显示预测的图像和视频
+save_frames: False # (bool) save predicted individual video frames
+							保存预测的单个视频帧
+save_txt: False # (bool) save results as .txt file
+						保存结果到文件
+					
+save_conf: False # (bool) save results with confidence scores 用于控制是否在保存结果时包含置信度分数
+save_crop: False # (bool) save cropped images with results 用于控制是否将带有结果的裁剪图像保存下来
+show_labels: True # (bool) show prediction labels, i.e. 'person' 用于控制在绘图结果中是否显示目标标签
+show_conf: True # (bool) show prediction confidence, i.e. '0.99' 用于控制在绘图结果中是否显示目标置信度分数
+show_boxes: True # (bool) show prediction boxes 显示预测框
+line_width: # (int, optional) line width of the bounding boxes. Scaled to image size if None. 边界框的线宽。如果无，则按图像大小缩放。
+ 
+# Export settings  导出设置------------------------------------------------------------------------------------------------------
+format: torchscript # (str) format to export to, choices at https://docs.ultralytics.com/modes/export/#export-formats
+						导出格式，可在以下位置选择
+keras: False # (bool) use Kera=s  使用Kera
+optimize: False # (bool) TorchScript: optimize for mobile 针对移动设备进行优化
+int8: False # (bool) CoreML/TF INT8 quantization   CoreML/TF INT8量化
+dynamic: False # (bool) ONNX/TF/TensorRT: dynamic axes   ONNX/TF/TensorRT：动态轴
+simplify: False # (bool) ONNX: simplify model  ONNX：简化模型
+opset: # (int, optional) ONNX: opset version  opset版本
+workspace: 4 # (int) TensorRT: workspace size (GB)
+nms: False # (bool) CoreML: add NMS
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+# Hyperparameters  超参数------------------------------------------------------------------------------------------------------
+lr0: 0.01 # (float) initial learning rate (i.e. SGD=1E-2, Adam=1E-3)
+					最初的学习速率(即 SGD=1E-2 ,  Adam=1E-3 )。调整此值对于优化过程至关重要，它会影响模型权重更新的速度。
+lrf: 0.01 # (float) final learning rate (lr0 * lrf)
+					最终学习率作为初始学习率的一部分= ( lr0 * lrf )，与调度器一起使用以随时间调整学习率。
+					
+momentum: 0.937 # (float) SGD momentum/Adam beta1 SGD的动量因子或Adam优化器的beta1，影响当前更新中过去梯度的整合。
+weight_decay: 0.0005 # (float) optimizer weight decay 5e-4  L2正则化项，惩罚大权重以防止过拟合。
+warmup_epochs: 3.0 # (float) warmup epochs (fractions ok) 学习率预热的epoch数，从一个较低的学习率逐渐增加到初始学习率，以稳定早期的训练。
+warmup_momentum: 0.8 # (float) warmup initial momentum 热身阶段的初始动量，在热身期间逐渐调整到设定的动量。
+warmup_bias_lr: 0.1 # (float) warmup initial bias lr  预热阶段偏差参数的学习率，有助于稳定初始阶段的模型训练。
+box: 7.5 # (float) box loss gain
+					损失函数中盒损失分量的权重，影响对准确预测边界盒坐标的重视程度。
+cls: 0.5 # (float) cls loss gain (scale with pixels) 图像缩放（+/- 增益）。 
+ 
+dfl: 1.5 # (float) dfl loss gain   分布焦点损失的权重，在某些YOLO版本中用于细粒度分类。
+pose: 12.0 # (float) pose loss gain
+kobj: 1.0 # (float) keypoint obj loss gain
+label_smoothing: 0.0 # (float) label smoothing (fraction)
+nbs: 64 # (int) nominal batch size
+hsv_h: 0.015 # (float) image HSV-Hue augmentation (fraction)
+hsv_s: 0.7 # (float) image HSV-Saturation augmentation (fraction)
+hsv_v: 0.4 # (float) image HSV-Value augmentation (fraction)
+ 
+degrees: 0.0 # (float) image rotation (+/- deg) 图像旋转角度（+/- 度数）。
+translate: 0.1 # (float) image translation (+/- fraction) 图像平移（+/- 比例）。
+scale: 0.5 # (float) image scale (+/- gain) 规模
+shear: 0.0 # (float) image shear (+/- deg)  图像剪切（+/- 度数）。
+perspective: 0.0 # (float) image perspective (+/- fraction), range 0-0.001 图像透视（+/- 比例），范围0-0.001。
+flipud: 0.0 # (float) image flip up-down (probability) 图像上下翻转（概率）。
+fliplr: 0.5 # (float) image flip left-right (probability) 图像左右翻转（概率）。
+bgr: 0.0 # (float) image channel BGR (probability) 图像通道BGR（概率）。
+mosaic: 1.0 # (float) image mosaic (probability) 图像马赛克（概率）。
+mixup: 0.0 # (float) image mixup (probability) 图像混合（概率）。
+ 
+copy_paste: 0.0 # (float) segment copy-paste (probability) 分割拷贝粘贴（概率）
+ 
+auto_augment: randaugment # (str) auto augmentation policy for classification (randaugment, autoaugment, augmix)
+erasing: 0.4 # (float) probability of random erasing during classification training (0-1)
+crop_fraction: 1.0 # (float) image crop fraction for classification evaluation/inference (0-1)
+ 
+ 
+------------------常用的几个超参数-------------------------------
+degrees: 图像旋转角度（+/- 度数）。
+translate: 图像平移（+/- 比例）。
+scale: 图像缩放（+/- 增益）。
+shear: 图像剪切（+/- 度数）。
+perspective: 图像透视（+/- 比例），范围0-0.001。  就是把图片从2d视角变3d视角，会歪曲图片
+flipud: 图像上下翻转（概率）。
+fliplr: 图像左右翻转（概率）。
+bgr: 图像通道BGR（概率）。
+mosaic: 图像马赛克（概率）。
+mixup: 图像混合（概率）。
+copy_paste: 分割拷贝粘贴（概率）。
+ 
+# Custom config.yaml ---------------------------------------------------------------------------------------------------
+cfg: # (str, optional) for overriding defaults.yaml
+ 
+# Tracker settings 跟踪器------------------------------------------------------------------------------------------------------
+tracker: botsort.yaml # (str) tracker type, choices=[botsort.yaml, bytetrack.yaml]

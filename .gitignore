@@ -1,0 +1,13 @@
+**/__pycache__/
+**/.ipynb_checkpoints/
+**/*.log
+
+
+models/pre-trained/
+models/post-trained/
+tests/
+
+datasets/raw_datasets/
+datasets/total/
+datasets/yolo_datasets/
+datasets/label_statistics.json
