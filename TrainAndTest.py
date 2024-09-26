@@ -34,8 +34,11 @@ class Model_Trainer():
         #（4）检查是否有预训练模型权重并加载测试结果字典
         self.check_and_download_model()
         self.test_results_path = os.path.join( self.RootPath, "tests/test_results.json")
-        with open( self.test_results_path, "r", encoding="utf-8") as f:
-            self.test_results = json.load(f)
+        if os.path.exists( self.test_results_path ):
+            with open( self.test_results_path, "r", encoding="utf-8") as f:
+                self.test_results = json.load(f)
+        else:
+            self.test_results = {}
         
         
     def check_path_exsit( self, path, info, termination=True):
@@ -76,8 +79,6 @@ class Model_Trainer():
         #（1）检查模型权重文件
         self.yolo_type = self.config['your_yolo_number']
         self.pretrained_mode_path = os.path.join( self.RootPath, f"models/pre-trained/Yolov10")
-        if not os.path.exists( self.pretrained_mode_path ):
-            os.makedirs( self.pretrained_mode_path )
         if not self.check_path_exsit( self.pretrained_mode_path, f"{self.model_type}模型预训练权重不存在！", False):
             # 如果不存在整套模型权重，则调用下载脚本下载
             yolov10_download_shpath = os.path.join( self.RootPath, "models/download_yolov10.sh" )
