@@ -2,6 +2,7 @@
 **/.ipynb_checkpoints/
 **/*.log
 
+test.py
 
 models/pre-trained/
 models/post-trained/
