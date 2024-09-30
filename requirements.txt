@@ -1,3 +1,5 @@
 pyyaml
+numpy
 huggingface_hub
 onnx>=1.12.0
+opencv-python
