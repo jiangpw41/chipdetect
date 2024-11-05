@@ -1,20 +1,20 @@
 {
     "yolo10_model_all" : ["yolov10n", "yolov10s", "yolov10m", "yolov10b", "yolov10l", "yolov10x"],
     "dataset_groups" :{
-        "X射线" : [ "X射线空洞标注" ],
-        "封口环空洞" : [ "封口环空洞标注" ],
-        "可见光" : [ "引腿划伤标注", "引腿变色标注"]
+        "X_ray" : [ "X_ray" ],
+        "SealingRingCavity" : [ "SealingRingCavity" ],
+        "visible_light" : [ "Scratch", "Discolor"]
     },
     "dataset_parts_ratio" : [0.7, 0.1, 0.2],
-
+    
     "your_yolo_number": "yolov10",
     "your_selected_model": "yolov10n",
-    "your_selected_group": "可见光",
+    "your_selected_group": "SealingRingCavity",
     "train_parameters":{
-        "epochs": 8000, 
+        "epochs": 1, 
         "batch" : 80, 
         "imgsz": 640, 
-        "device": "0,1,2,3,4,5,6,7",
+        "device": "cpu",
         "amp": false,
         "exist_ok": true,
         "save_json": true
