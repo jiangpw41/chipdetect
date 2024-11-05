@@ -13,7 +13,3 @@ datasets/raw_datasets/
 datasets/total/
 datasets/yolo_datasets/
 datasets/label_statistics.json
-
-DataProcessor.exe
-ui.exe
-TrainAndTest.exe

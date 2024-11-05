@@ -1,12 +1,16 @@
 import os
 import random
+import math
+from sympy import EX
 random.seed(42)
 import shutil
 from tqdm import tqdm
-import sys
-import cv2
+from ultralytics import YOLOv10
+
 import numpy as np
+import cv2
 import json
+from collections import OrderedDict
 
 ###################################################数据处理函数####################################################################
 #（A）将labelme的标注数据格式修改为coco的格式
@@ -59,7 +63,7 @@ def xywh2xyxy(x_center_nom, y_center_nom, w_tag_nom, h_tag_nom, w_all, h_all, ne
 #（C）对yolo下的total进行图形标注，易于用户观察
 def single_tag( from_path_file_image, num_labels, to_path_file_image_tagged, need_norm=True):
         # 读取image文件
-        img = cv2.imdecode(np.fromfile( from_path_file_image, dtype=np.uint8), -1)
+        img = cv2.imread( from_path_file_image )
         h1, w1 = img.shape[:2]
         # 绘图并保存
         used_list = []
@@ -111,21 +115,9 @@ def draw( label_list, img, w1, h1, ouput_dir,  flag="five" ):
     cv2.waitKey(0)  # 按键结束
     cv2.destroyAllWindows()
 ###################################################数据处理类####################################################################
-
-def get_root_path():
-    if getattr(sys, 'frozen', False):  # 是否为PyInstaller打包的exe文件
-        # 返回exe文件所在的绝对路径
-        base_path = os.path.dirname(sys.executable)
-    else:  # 在开发环境下运行
-        # 返回脚本文件所在的绝对路径
-        base_path = os.path.dirname( os.path.abspath(__file__)) 
-    return base_path
-
-
-
 class DataProcess():
     def __init__(self):
-        self.RootPath = get_root_path()               # 项目根目录
+        self.RootPath = os.path.dirname( os.path.abspath(__file__))                # 项目根目录
         #（1）加载配置config.json文件
         config_path = os.path.join( self.RootPath, "config.json" )
         if not os.path.exists( config_path ):
@@ -137,8 +129,8 @@ class DataProcess():
         self.dataset_parts_ratio = self.config["dataset_parts_ratio"]
         #（2）检查并创建三个主干子文件夹：如果不存在则创建：raw_datasets、yolo_datasets、total
         self.data_path = os.path.join( self.RootPath, f"datasets")                           # 项目数据目录
-        self.raw_data_path = os.path.join( self.RootPath, f"datasets", "raw_datasets")          # raw数据目录，多个文件夹
-        self.yolo_data_path = os.path.join( self.RootPath, f"datasets", "yolo_datasets")        # 对应yolo可用的数据目录，多个文件夹
+        self.raw_data_path = os.path.join( self.RootPath, f"datasets/raw_datasets")          # raw数据目录，多个文件夹
+        self.yolo_data_path = os.path.join( self.RootPath, f"datasets/yolo_datasets")        # 对应yolo可用的数据目录，多个文件夹
         if not os.path.exists( self.yolo_data_path ):
             os.makedirs( self.yolo_data_path )
         self.yolo_data_path_total = os.path.join( self.data_path, f"total")                  # total文件夹
@@ -271,7 +263,7 @@ class DataProcess():
     def load_json_and_statistics(self, data_prefix, raw_name):
         json_dict = {}
         json_name = data_prefix+".json"
-        json_path = os.path.join( self.raw_data_path,  f"{raw_name}", f"{json_name}")
+        json_path = os.path.join( self.raw_data_path,  f"{raw_name}/{json_name}")
         with open(json_path, 'r', encoding='utf-8') as json_file:  
             data = json.load(json_file)
         json_dict["position"], json_dict["label"]  = self.parse_json( data, raw_name, data_prefix)
@@ -336,17 +328,17 @@ class DataProcess():
                 prefix = prefix_list[i]
                 new_file_name = file_name + "_yolo"
                 #（1）将image拷贝到images文件夹下
-                image_from_path = os.path.join( self.raw_data_path, f"{file_name}", f"{prefix}.jpg")
-                image_to_path = os.path.join( self.yolo_data_path, f"{new_file_name}", "images", f"{prefix}.jpg")
+                image_from_path = os.path.join( self.raw_data_path, f"{file_name}/{prefix}.jpg")
+                image_to_path = os.path.join( self.yolo_data_path, f"{new_file_name}/images/{prefix}.jpg")
                 shutil.copy(image_from_path, image_to_path) 
                 #（2）将label列表以txt格式保存到labels文件夹下
                 labels = index_new_data_ready[file_name][prefix]['position']
-                label_to_path = os.path.join( self.yolo_data_path, f"{new_file_name}", "labels", f"{prefix}.txt")
+                label_to_path = os.path.join( self.yolo_data_path, f"{new_file_name}/labels/{prefix}.txt")
                 with open( label_to_path, "w", encoding="utf-8") as f:  
                     for label in labels:  
                         f.write( f"{' '.join(map(str, label))}\n")    # 将字符串写入文件，并在末尾添加换行符以确保每个字符串独占一行  
                 #（3）对images进行标注放到images_tagged文件夹下
-                tagged_image_to_path = os.path.join( self.yolo_data_path, f"{new_file_name}", "images_tagged", f"{prefix}.jpg")
+                tagged_image_to_path = os.path.join( self.yolo_data_path, f"{new_file_name}/images_tagged/{prefix}.jpg")
                 single_tag( image_from_path, labels, tagged_image_to_path)
 
     #（7-1）考虑多标签均衡的划分train_valid_test
@@ -383,7 +375,7 @@ class DataProcess():
         # 遍历需要更改的group名
         for key in self.group_need_change:
             #（1）如果已经存在则要重新创建
-            _dir_name = os.path.join( self.data_path, f"total", f"{key}")
+            _dir_name = os.path.join( self.data_path, f"total/{key}")
             if os.path.exists( _dir_name ):
                 try:  
                     shutil.rmtree(_dir_name)  
@@ -393,7 +385,7 @@ class DataProcess():
             os.makedirs( _dir_name )
             for _sub_dir in [ "images", "labels"]:
                 for _sub_sub_dir in ["train", "test", "valid"]:
-                    os.makedirs( os.path.join( _dir_name, f"{_sub_dir}", f"{_sub_sub_dir}") )
+                    os.makedirs( os.path.join( _dir_name, f"{_sub_dir}/{_sub_sub_dir}") )
             #（2）将group所有子文件夹中的文件混合到一起，（混合文件名，label向量）
             sub_dirnames = self.groups[key]
             group_label = self.dataset_label_map["groups_label"][key]  # 本group所有标签
@@ -407,7 +399,7 @@ class DataProcess():
                 for file_prefix in file_name_list:
                     # 对子文件夹中所有文件进行处理
                     single_label = [ 0 for i in range(len(group_label))]
-                    mix_name = f"{sub_dirname}_yolo", f"{file_prefix}"          # 防止多个子文件夹有同名文件
+                    mix_name = f"{sub_dirname}_yolo/{file_prefix}"          # 防止多个子文件夹有同名文件
                     _label_dic = sub_dir_dic[file_prefix]["label"]
                     for index_key in _label_dic:
                         single_label[index_key] = _label_dic[index_key]
@@ -427,19 +419,16 @@ class DataProcess():
                     _label_list = _part[i][1]
                     for j in range(len( group_label )):
                         _statistics[_type][j] += _label_list[j]
-                    """
+                
                     sub_dir = _prefix_name.split("/")[0]
                     prefix_name = _prefix_name.split("/")[1]
-                    """
-                    sub_dir = _prefix_name[0]
-                    prefix_name = _prefix_name[1]
                     # 复制图像
-                    from_image_path = os.path.join( self.yolo_data_path, f"{sub_dir}", "images", f"{prefix_name}.jpg")
-                    to_image_path = os.path.join( self.data_path, f"total", f"{key}", f"images", f"{_type}", f"{prefix_name}.jpg")
+                    from_image_path = os.path.join( self.yolo_data_path, f"{sub_dir}/images/{prefix_name}.jpg")
+                    to_image_path = os.path.join( self.data_path, f"total/{key}/images/{_type}/{prefix_name}.jpg")
                     shutil.copy(from_image_path, to_image_path) 
                     # 复制标签
-                    from_label_path = os.path.join( self.yolo_data_path, f"{sub_dir}", "labels", f"{prefix_name}.txt")
-                    to_label_path = os.path.join( self.data_path, f"total", f"{key}", "labels", f"{_type}", f"{prefix_name}.txt")
+                    from_label_path = os.path.join( self.yolo_data_path, f"{sub_dir}/labels/{prefix_name}.txt")
+                    to_label_path = os.path.join( self.data_path, f"total/{key}/labels/{_type}/{prefix_name}.txt")
                     shutil.copy(from_label_path, to_label_path)
             self.dataset_label_map["groups_label"][key]["statistics"] = _statistics
             
